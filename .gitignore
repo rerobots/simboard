@@ -1,5 +1,7 @@
 *.pyc
 *.dSYM/
+*.elf
+*.hex
 
 *~
 /.vscode/
