@@ -17,6 +17,11 @@ void uart_output_hook(struct avr_irq_t *irq, uint32_t value, void *param)
 	printf("{\"event\": \"UART\", \"value\": %d}\n", value);
 }
 
+void portB_hook(struct avr_irq_t *irq, uint32_t value, void *param)
+{
+	printf("{\"event\": \"PORTB\", \"value\": %d}\n", value);
+}
+
 
 int main(int argc, char **argv)
 {
@@ -26,6 +31,7 @@ int main(int argc, char **argv)
 	uint32_t boot_base, boot_size;
 	uint32_t flags;
 	avr_irq_t *uart_output_irq = NULL;
+	avr_irq_t *portB_irq = NULL;
 
 	if (argc != 4) {
 		fprintf(stderr, "Usage: %s MCU FREQ FILE\n", argv[0]);
@@ -60,6 +66,9 @@ int main(int argc, char **argv)
 
 	uart_output_irq = avr_io_getirq(avr, AVR_IOCTL_UART_GETIRQ('0'), UART_IRQ_OUTPUT);
 	avr_irq_register_notify(uart_output_irq, uart_output_hook, NULL);
+
+	portB_irq = avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ('B'), IOPORT_IRQ_PIN_ALL);
+	avr_irq_register_notify(portB_irq, portB_hook, NULL);
 
 	while (1) {
 		int state = avr_run(avr);
