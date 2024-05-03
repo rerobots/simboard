@@ -14,12 +14,12 @@ Copyright (C) 2024 rerobots, Inc.
 
 void uart_output_hook(struct avr_irq_t *irq, uint32_t value, void *param)
 {
-	printf("{\"event\": \"UART\", \"value\": %d}\n", value);
+	printf("{\"event\": \"UART\", \"value\": %u}\n", value);
 }
 
 void portB_hook(struct avr_irq_t *irq, uint32_t value, void *param)
 {
-	printf("{\"event\": \"PORTB\", \"value\": %d}\n", value);
+	printf("{\"event\": \"PORTB\", \"value\": %u}\n", value);
 }
 
 
