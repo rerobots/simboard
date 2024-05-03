@@ -28,9 +28,17 @@ static FILE ustdout = FDEV_SETUP_STREAM(uart_putchar, NULL, _FDEV_SETUP_WRITE);
 
 int main()
 {
+	uint8_t k;
+
 	stdout = &ustdout;
 
 	printf("¡Hola, mundo!\n");
+
+	DDRB = 0xFF;
+
+	for (k = 0; k < 20; k++) {
+		PORTB = k;
+	}
 
 	sleep_cpu();
 	return 0;
