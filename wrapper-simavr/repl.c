@@ -28,18 +28,18 @@ int main(int argc, char **argv)
 	avr_irq_t *uart_output_irq = NULL;
 
 	if (argc != 4) {
-		printf("Usage: %s MCU FREQ FILE\n", argv[0]);
+		fprintf(stderr, "Usage: %s MCU FREQ FILE\n", argv[0]);
 		return 1;
 	}
 	freq = atoi(argv[2]);
 	if (freq < 1) {
-		printf("Frequency must be greater than 0\n");
+		fprintf(stderr, "Frequency must be greater than 0\n");
 		return 1;
 	}
 
 	avr = avr_make_mcu_by_name(argv[1]);
 	if (!avr) {
-		printf("Failed to make MCU\n");
+		fprintf(stderr, "Failed to make MCU\n");
 		return 1;
 	}
 
