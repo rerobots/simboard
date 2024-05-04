@@ -6,4 +6,4 @@ repl-simavr: repl.c
 
 .PHONY: clean
 clean:
-	rm -f repl-simavr
+	rm -rf repl-simavr *.dSYM
