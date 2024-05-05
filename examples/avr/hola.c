@@ -12,6 +12,9 @@ https://www.nongnu.org/avr-libc/user-manual/group__avr__stdio.html
 #include <avr/io.h>
 #include <avr/sleep.h>
 
+#define F_CPU (10000000UL)
+#include <util/delay.h>
+
 
 static int uart_putchar(char c, FILE *stream)
 {
@@ -38,6 +41,7 @@ int main()
 
 	for (k = 0; k < 20; k++) {
 		PORTB = k;
+		_delay_ms(500);
 	}
 
 	sleep_cpu();
