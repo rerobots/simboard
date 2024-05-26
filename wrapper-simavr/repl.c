@@ -32,9 +32,11 @@ int main(int argc, char **argv)
 	uint32_t flags;
 	avr_irq_t *uart_output_irq = NULL;
 	avr_irq_t *portB_irq = NULL;
+	char *url = NULL;
+	char *token_path = NULL;
 
-	if (argc != 4) {
-		fprintf(stderr, "Usage: %s MCU FREQ FILE\n", argv[0]);
+	if (argc != 4 && argc != 6) {
+		fprintf(stderr, "Usage: %s MCU FREQ FILE [URL TOKEN]\n", argv[0]);
 		return 1;
 	}
 	freq = atoi(argv[2]);
@@ -50,6 +52,11 @@ int main(int argc, char **argv)
 	}
 
 	boot = read_ihex_file(argv[3], &boot_size, &boot_base);
+
+	if (argc > 4) {
+		url = argv[4];
+		token_path = argv[5];
+	}
 
 	avr_init(avr);
 	avr->frequency = freq;
