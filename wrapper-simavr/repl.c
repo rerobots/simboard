@@ -2,6 +2,7 @@
 Copyright (C) 2024 rerobots, Inc.
 */
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,6 +24,17 @@ void portB_hook(struct avr_irq_t *irq, uint32_t value, void *param)
 }
 
 
+void sim_main(avr_t *avr)
+{
+	while (1) {
+		int state = avr_run(avr);
+		if (state == cpu_Done || state == cpu_Crashed) {
+			break;
+		}
+	}
+}
+
+
 int main(int argc, char **argv)
 {
 	avr_t *avr = NULL;
@@ -34,6 +46,8 @@ int main(int argc, char **argv)
 	avr_irq_t *portB_irq = NULL;
 	char *url = NULL;
 	char *token_path = NULL;
+	pthread_t *sim_main_thread;
+	int errno;
 
 	if (argc != 4 && argc != 6) {
 		fprintf(stderr, "Usage: %s MCU FREQ FILE [URL TOKEN]\n", argv[0]);
@@ -77,11 +91,15 @@ int main(int argc, char **argv)
 	portB_irq = avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ('B'), IOPORT_IRQ_PIN_ALL);
 	avr_irq_register_notify(portB_irq, portB_hook, NULL);
 
-	while (1) {
-		int state = avr_run(avr);
-		if (state == cpu_Done || state == cpu_Crashed) {
-			break;
-		}
+	errno = pthread_create(&sim_main_thread, NULL, sim_main, avr);
+	if (errno) {
+		fprintf(stderr, "error: failed to create main sim thread\n");
+		return 1;
+	}
+
+	if (pthread_join(sim_main_thread, NULL)) {
+		fprintf(stderr, "error: failed to join main sim thread\n");
+		return 1;
 	}
 
 	return 0;
