@@ -13,14 +13,80 @@ Copyright (C) 2024 rerobots, Inc.
 #include <simavr/avr_uart.h>
 
 
+typedef struct event_queue_t {
+	char *event;
+	struct event_queue_t *next;
+} event_queue_t;
+
+
+event_queue_t *eventq = NULL;
+pthread_mutex_t eventq_mutex;
+
+
+void event_queue_push(event_queue_t **eq, char *event)
+{
+	pthread_mutex_lock(&eventq_mutex);
+	if (*eq == NULL) {
+		*eq = malloc(sizeof(event_queue_t));
+		(*eq)->next = NULL;
+		(*eq)->event = event;
+	} else {
+		event_queue_t *target = *eq;
+		while (target->next != NULL) {
+			target = target->next;
+		}
+		target->next = malloc(sizeof(event_queue_t));
+		target = target->next;
+		target->next = NULL;
+		target->event = event;
+	}
+	pthread_mutex_unlock(&eventq_mutex);
+}
+
+
+char *event_queue_pop(event_queue_t **eq)
+{
+	pthread_mutex_lock(&eventq_mutex);
+	char *event;
+	if (*eq == NULL) {
+		pthread_mutex_unlock(&eventq_mutex);
+		return 0;
+	}
+	event = (*eq)->event;
+	event_queue_t *old = *eq;
+	old = *eq;
+	*eq = (*eq)->next;
+	free(old);
+	pthread_mutex_unlock(&eventq_mutex);
+	return event;
+}
+
+
+int event_queue_len(event_queue_t *eq)
+{
+	pthread_mutex_lock(&eventq_mutex);
+	int len = 0;
+	while (eq) {
+		len++;
+		eq = eq->next;
+	}
+	pthread_mutex_unlock(&eventq_mutex);
+	return len;
+}
+
+
 void uart_output_hook(struct avr_irq_t *irq, uint32_t value, void *param)
 {
-	printf("{\"event\": \"UART\", \"value\": %u}\n", value);
+	char *buf = malloc(sizeof(char)*32);
+	snprintf(buf, 32, "{\"event\": \"UART\", \"value\": %u}", value);
+	event_queue_push(&eventq, buf);
 }
 
 void portB_hook(struct avr_irq_t *irq, uint32_t value, void *param)
 {
-	printf("{\"event\": \"PORTB\", \"value\": %u}\n", value);
+	char *buf = malloc(sizeof(char)*32);
+	snprintf(buf, 32, "{\"event\": \"PORTB\", \"value\": %u}", value);
+	event_queue_push(&eventq, buf);
 }
 
 
@@ -90,6 +156,11 @@ int main(int argc, char **argv)
 
 	portB_irq = avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ('B'), IOPORT_IRQ_PIN_ALL);
 	avr_irq_register_notify(portB_irq, portB_hook, NULL);
+
+	if (pthread_mutex_init(&eventq_mutex, NULL)) {
+		fprintf(stderr, "error creating mutex for event queue\n");
+		return 1;
+	}
 
 	errno = pthread_create(&sim_main_thread, NULL, sim_main, avr);
 	if (errno) {
