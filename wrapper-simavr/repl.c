@@ -90,14 +90,15 @@ void portB_hook(struct avr_irq_t *irq, uint32_t value, void *param)
 }
 
 
-void sim_main(avr_t *avr)
+void *sim_main(void *avr)
 {
 	while (1) {
-		int state = avr_run(avr);
+		int state = avr_run((avr_t *) avr);
 		if (state == cpu_Done || state == cpu_Crashed) {
 			break;
 		}
 	}
+	return NULL;
 }
 
 
@@ -112,7 +113,7 @@ int main(int argc, char **argv)
 	avr_irq_t *portB_irq = NULL;
 	char *url = NULL;
 	char *token_path = NULL;
-	pthread_t *sim_main_thread;
+	pthread_t sim_main_thread;
 	int errno;
 
 	if (argc != 4 && argc != 6) {
