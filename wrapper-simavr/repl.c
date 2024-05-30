@@ -7,6 +7,7 @@ Copyright (C) 2024 rerobots, Inc.
 #include <stdlib.h>
 #include <string.h>
 
+#include <libwebsockets.h>
 #include <simavr/sim_avr.h>
 #include <simavr/sim_hex.h>
 #include <simavr/avr_ioport.h>
@@ -97,6 +98,16 @@ void *sim_main(void *avr)
 		if (state == cpu_Done || state == cpu_Crashed) {
 			break;
 		}
+	}
+	return NULL;
+}
+
+
+void *lws_main(void *context)
+{
+	int n = 0;
+	while (n >= 0) {
+		n = lws_service((struct lws_context *) context, 0);
 	}
 	return NULL;
 }
