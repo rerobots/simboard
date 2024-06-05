@@ -125,7 +125,12 @@ int main(int argc, char **argv)
 	char *url = NULL;
 	char *token_path = NULL;
 	pthread_t sim_main_thread;
+	pthread_t lws_thread;
 	int errno;
+
+	struct lws_context_creation_info ws_creation_info;
+	struct lws_client_connect_info ws_connect_info;
+	struct lws_context *ws_context;
 
 	if (argc != 4 && argc != 6) {
 		fprintf(stderr, "Usage: %s MCU FREQ FILE [URL TOKEN]\n", argv[0]);
