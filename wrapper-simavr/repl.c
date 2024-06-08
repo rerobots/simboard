@@ -51,7 +51,7 @@ char *event_queue_pop(event_queue_t **eq)
 	char *event;
 	if (*eq == NULL) {
 		pthread_mutex_unlock(&eventq_mutex);
-		return 0;
+		return NULL;
 	}
 	event = (*eq)->event;
 	event_queue_t *old = *eq;
