@@ -14,6 +14,9 @@ Copyright (C) 2024 rerobots, Inc.
 #include <simavr/avr_uart.h>
 
 
+#define MAX_SIM_EVENT_LEN 128
+
+
 typedef struct event_queue_t {
 	char *event;
 	struct event_queue_t *next;
@@ -78,27 +81,90 @@ int event_queue_len(event_queue_t *eq)
 
 void uart_output_hook(struct avr_irq_t *irq, uint32_t value, void *param)
 {
-	char *buf = malloc(sizeof(char)*32);
-	snprintf(buf, 32, "{\"event\": \"UART\", \"value\": %u}", value);
+	char *buf = malloc(sizeof(char)*MAX_SIM_EVENT_LEN);
+	snprintf(buf, MAX_SIM_EVENT_LEN, "{\"event\": \"UART\", \"value\": %u}", value);
 	event_queue_push(&eventq, buf);
 }
 
 void portB_hook(struct avr_irq_t *irq, uint32_t value, void *param)
 {
-	char *buf = malloc(sizeof(char)*32);
-	snprintf(buf, 32, "{\"event\": \"PORTB\", \"value\": %u}", value);
+	char *buf = malloc(sizeof(char)*MAX_SIM_EVENT_LEN);
+	snprintf(buf, MAX_SIM_EVENT_LEN, "{\"event\": \"PORTB\", \"value\": %u}", value);
 	event_queue_push(&eventq, buf);
 }
 
 
+static int ws_callback(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len)
+{
+	char *sim_event;
+	int n;
+	char buf[LWS_PRE + MAX_SIM_EVENT_LEN];
+
+	switch (reason) {
+		case LWS_CALLBACK_CLIENT_CONNECTION_ERROR:
+			fprintf(stderr, "LWS_CALLBACK_CLIENT_CONNECTION_ERROR\n");
+			break;
+
+		case LWS_CALLBACK_CLIENT_ESTABLISHED:
+			fprintf(stderr, "LWS_CALLBACK_CLIENT_ESTABLISHED\n");
+			lws_callback_on_writable(wsi);
+			break;
+
+		case LWS_CALLBACK_CLIENT_RECEIVE:
+			fprintf(stderr, "LWS_CALLBACK_CLIENT_RECEIVE\n");
+			break;
+
+		case LWS_CALLBACK_CLIENT_WRITEABLE:
+			/* TODO: something better than busy-loop */
+			sim_event = event_queue_pop(&eventq);
+			if (sim_event) {
+				fprintf(stderr, "sending...\n");
+				snprintf(&buf[LWS_PRE], MAX_SIM_EVENT_LEN, "%s", sim_event);
+				free(sim_event);
+				sim_event = NULL;
+				n = lws_write(wsi, &buf[LWS_PRE], strnlen(&buf[LWS_PRE], MAX_SIM_EVENT_LEN), LWS_WRITE_TEXT);
+			}
+			lws_callback_on_writable(wsi);
+			break;
+
+		case LWS_CALLBACK_CLIENT_CLOSED:
+			fprintf(stderr, "LWS_CALLBACK_CLIENT_CLOSED\n");
+			break;
+
+		default:
+			fprintf(stderr, "warning: unhandled WebSocket callback: %d\n", reason);
+			break;
+	}
+
+	return lws_callback_http_dummy(wsi, reason, user, in, len);
+}
+
+static const struct lws_protocols ws_protocols[] = {
+	{
+		"simboard",
+		ws_callback,
+		0, 0, 0, NULL, 0
+	},
+	LWS_PROTOCOL_LIST_TERM
+};
+
+
 void *sim_main(void *avr)
 {
+	int state = -1;
 	while (1) {
-		int state = avr_run((avr_t *) avr);
+		state = avr_run((avr_t *) avr);
 		if (state == cpu_Done || state == cpu_Crashed) {
 			break;
 		}
 	}
+	char *buf = malloc(sizeof(char)*MAX_SIM_EVENT_LEN);
+	if (state == cpu_Done) {
+		snprintf(buf, MAX_SIM_EVENT_LEN, "{\"event\": \"SIM\", \"value\": \"DONE\"}");
+	} else {  /* state == cpu_Crashed */
+		snprintf(buf, MAX_SIM_EVENT_LEN, "{\"event\": \"SIM\", \"value\": \"CRASH\"}");
+	}
+	event_queue_push(&eventq, buf);
 	return NULL;
 }
 
@@ -179,16 +245,52 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	memset(&ws_creation_info, 0, sizeof(ws_creation_info));
+	ws_creation_info.options = LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+	ws_creation_info.port = CONTEXT_PORT_NO_LISTEN;
+	ws_creation_info.protocols = ws_protocols;
+	ws_creation_info.timeout_secs = 10;
+	ws_creation_info.connect_timeout_secs = 30;
+	ws_creation_info.fd_limit_per_thread = 1 + 1 + 1;
+	ws_context = lws_create_context(&ws_creation_info);
+	if (!ws_context) {
+		fprintf(stderr, "error: failed to create LWS context\n");
+		return 1;
+	}
+	memset(&ws_connect_info, 0, sizeof(ws_connect_info));
+	ws_connect_info.context = ws_context;
+	ws_connect_info.host = ws_connect_info.address;
+	ws_connect_info.origin = ws_connect_info.address;
+	ws_connect_info.protocol = ws_protocols[0].name;
+
+	lws_client_connect_via_info(&ws_connect_info);
+
+	fprintf(stderr, "starting lws thread\n");
+	errno = pthread_create(&lws_thread, NULL, lws_main, ws_context);
+	if (errno) {
+		fprintf(stderr, "error: failed to create WebSocket thread\n");
+		return 1;
+	}
+
+	fprintf(stderr, "starting sim thread\n");
 	errno = pthread_create(&sim_main_thread, NULL, sim_main, avr);
 	if (errno) {
 		fprintf(stderr, "error: failed to create main sim thread\n");
 		return 1;
 	}
 
+	fprintf(stderr, "joining sim thread\n");
 	if (pthread_join(sim_main_thread, NULL)) {
 		fprintf(stderr, "error: failed to join main sim thread\n");
 		return 1;
 	}
+
+	fprintf(stderr, "joining lws thread\n");
+	if (pthread_join(lws_thread, NULL)) {
+		fprintf(stderr, "error: failed to join main sim thread\n");
+		return 1;
+	}
+	lws_context_destroy(ws_context);
 
 	return 0;
 }
