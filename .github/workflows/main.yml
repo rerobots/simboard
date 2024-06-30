@@ -1,0 +1,17 @@
+---
+# configuration for GitHub Actions
+name: simboard tests
+on:
+    push:
+    pull_request:
+jobs:
+    wrapper-simavr:
+        name: Build and test wrapper-simavr
+        runs-on: ubuntu-22.04
+        steps:
+            - uses: actions/checkout@v4
+            - name: Build
+              run: |
+                cd wrapper-simavr
+                mkdir build && cd build && cmake ..
+                make
