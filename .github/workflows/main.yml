@@ -10,6 +10,9 @@ jobs:
         runs-on: ubuntu-22.04
         steps:
             - uses: actions/checkout@v4
+            - name: Dependencies
+              run: |
+                apt install libwebsockets-dev
             - name: Build
               run: |
                 cd wrapper-simavr
