@@ -12,7 +12,9 @@ jobs:
             - uses: actions/checkout@v4
             - name: Dependencies
               run: |
-                apt install libwebsockets-dev
+                sudo apt-get -y install \
+                    libwebsockets-dev \
+                    libsimavr-dev
             - name: Build
               run: |
                 cd wrapper-simavr
