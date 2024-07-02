@@ -18,7 +18,7 @@ jobs:
                 tar -xzf lws.tgz
                 cd libwebsockets-4.3.3
                 mkdir build && cd build && cmake ..
-                make && make install
+                make && sudo make install
             - name: Build
               run: |
                 cd wrapper-simavr
