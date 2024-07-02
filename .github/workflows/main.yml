@@ -13,8 +13,12 @@ jobs:
             - name: Dependencies
               run: |
                 sudo apt-get -y install \
-                    libwebsockets-dev \
                     libsimavr-dev
+                curl -L -o lws.tgz https://github.com/warmcat/libwebsockets/archive/refs/tags/v4.3.3.tar.gz
+                tar -xzf lws.tgz
+                cd libwebsockets-4.3.3
+                mkdir build && cd build && cmake ..
+                make && make install
             - name: Build
               run: |
                 cd wrapper-simavr
