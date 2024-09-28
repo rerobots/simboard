@@ -1,7 +1,7 @@
 Introduction
 ------------
 
-Wrappers of electronics simulators for use in hardshare
+Wrappers of electronics simulators for use in [hardshare](https://docs.rerobots.net/)
 
 
 License
